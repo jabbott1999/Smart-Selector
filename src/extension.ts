@@ -1,48 +1,70 @@
 import * as vscode from "vscode";
 
-const symbolPairs = {
-  "(": ")",
-  "{": "}",
-  "[": "]",
-  '"': '"',
-  "'": "'",
-};
+const editor: vscode.TextEditor = vscode.window.activeTextEditor!;
+
+let symbolPairs = new Map();
+symbolPairs.set("(", ")");
+symbolPairs.set("{", "}");
+symbolPairs.set("[", "]");
+symbolPairs.set('"', '"');
+symbolPairs.set("'", "'");
 
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("smartSelect.smartSelect", function () {
-      const editor = vscode.window.activeTextEditor;
       if (!editor) {
         return;
       }
-
-	  smartSelect(editor);
-      
-      var text = editor.document.getText(getSelection(editor, 0, 4));
-
-      vscode.window.showInformationMessage(text);
+	    smartSelect();
     })
   );
 }
 
 export function deactivate() {}
 
-function smartSelect(editor: vscode.TextEditor) {
-	const currentSelection = editor.selection;
-	editor.selection = getSelection(editor, getStartIndex(editor, currentSelection), getEndIndex(editor, currentSelection));
+function smartSelect() {
+	editor.selection = select(getNewIndexes());
 }
 
-function getStartIndex(editor: vscode.TextEditor, currentSelection: vscode.Selection): number {
-	return 0;
+function getNewIndexes(): {start: number, end: number} {
+  const newStartIndex: number = getNewStartIndex();
+  const newEndIndex: number = getIndexOfMatchingSymbol(symbolPairs.get(getCharacterByIndex(newStartIndex - 1)));
+  return {start: newStartIndex, end: newEndIndex};
 }
 
-function getEndIndex(editor: vscode.TextEditor, currentSelection: vscode.Selection): number {
-	return 0;
+function getNewStartIndex(): number {
+  let startIndex: number = editor.selection.start.character;
+
+  while (startIndex > -1) {
+    if (symbolPairs.get(getCharacterByIndex(startIndex))) {
+      return startIndex + 1;
+    }
+    startIndex --;
+  }
+ 
+  return 0;
 }
 
-function getSelection(editor: vscode.TextEditor, start: number, end: number): vscode.Selection {
+function getIndexOfMatchingSymbol(symbolToMatch: string): number {
+  let endIndex: number = editor.selection.end.character;
+
+  while (endIndex < editor.document.getText().length) {
+    if (getCharacterByIndex(endIndex) == symbolToMatch) {
+      return endIndex;
+    }
+    endIndex ++;
+  } 
+
+	return editor.document.getText().length;
+}
+
+function select(selection: {start: number, end: number}): vscode.Selection {
   return new vscode.Selection(
-    editor.document.positionAt(start),
-    editor.document.positionAt(end)
+    editor.document.positionAt(selection.start),
+    editor.document.positionAt(selection.end)
   );
+}
+
+function getCharacterByIndex(index: number): string {
+  return editor.document.getText(new vscode.Selection(editor.document.positionAt(index), editor.document.positionAt(index + 1)))
 }
